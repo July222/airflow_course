@@ -1,0 +1,1 @@
+SELECT partner_name from partners WHERE date={{ ds }}
