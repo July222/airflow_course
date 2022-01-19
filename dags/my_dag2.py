@@ -11,16 +11,9 @@ class CustomPostgresOperator(PostgresOperator):
     template_fields = ('sql', 'parameters')
 
 
-def _stage1(ti):
-    partner_name = 'netflix'
-    partner_path = '/partners/netflix'
-    # ti.xcom_push(key="partner_name", value=partner_name)
-    return {'partner_name': partner_name, 'partner_path': partner_path}
+def _extract(responsible_name):
+    print(responsible_name)
 
-def _stage2(ti):
-    # partner_name = ti.xcom_pull(key="partner_name", task_ids='stage1')
-    partner_settings = ti.xcom_pull(task_ids='stage1')
-    print(partner_settings['partner_name'])
 
 
 with DAG(
@@ -35,13 +28,21 @@ with DAG(
         max_active_runs=5   # how many DAG runs can be executed at the same time
 ) as dag:
 
+    extract = PythonOperator(
+        task_id="extract",
+        python_callable=_extract,
+        # op_args=[Variable.get('my_dag_responsible', deserialize_json=True)['name']]    # deserialize_json=True is needed to parse a JSON variable
+        op_args=["{{var.json.my_dag_responsible.name}}"] # unlikely the commented line, we get the variable value only when DAG runs (not in the parse time), so we don't create additional useless DB connections
+    )
 
-    stage1 = PythonOperator(
-        task_id="stage1",
-        python_callable=_stage1)
+    fetching_data = CustomPostgresOperator(
+        task_id="fetching_data",
+        sql="sql/MY_REQUEST.sql",
+        parameters={
+            "next_ds": '{{next_ds}}',
+            'prev_ds': '{{prev_ds}}',
+            'responsible_name': '{{var.json.my_dag_responsible.name}}'    #  these variables will be fetched during run time, not parse time
+        }
+    )
 
-    stage2 = PythonOperator(
-        task_id="stage2",
-        python_callable=_stage2)
 
-    stage1 >> stage2
