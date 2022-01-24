@@ -29,6 +29,11 @@ def stage3() -> Dict[str, str]:     # in this case each dict value becomes a sep
     partner_path = '/partners/amazon'
     return {'partner_name': partner_name, 'partner_path': partner_path}
 
+
+@task.python
+def stage4(partner_name, partner_path):
+    return {'partner_name': partner_name, 'partner_path': partner_path}
+
 @dag(
         description="this is test DAG",
         start_date=datetime(2022, 1, 5),   # the date when DAG starts being scheduled. Can be defined for each task separately. With catchup=True backfill process for old dates can start
@@ -42,7 +47,8 @@ def stage3() -> Dict[str, str]:     # in this case each dict value becomes a sep
 def my_dag_taskflow_api():      # the name of the function is dag_id
 
     stage2(stage1())   # dependencies between tasks will be generated automatically
-    stage3()
+    partner_settings = stage3()
+    stage4(partner_settings['partner_name'], partner_settings['partner_path'])
 
 
 dag = my_dag_taskflow_api()
